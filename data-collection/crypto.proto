@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package crypto;
+
+option go_package = "datacollection/mycrypto;mycrypto";
+
+message CryptoData {
+    string T = 1 [json_name="T"];  // Type
+    string S = 2 [json_name="S"];  // Symbol
+    double price = 3 [json_name="p"];  // Price
+    double size = 4 [json_name="s"];  // Size
+    string time = 5 [json_name="t"];  // Time
+    int64 trade_id = 6 [json_name="i"];   // Trade ID
+    string ticks = 7 [json_name="tks"]; // Ticks
+}
+
+service CryptoStream {
+  rpc StreamCrypto (stream CryptoData) returns (StreamResponse);
+}
+
+message StreamResponse {
+    string result = 1;
+}

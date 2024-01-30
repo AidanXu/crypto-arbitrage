@@ -1,0 +1,13 @@
+version: '3'
+services:
+  data-collection:
+    build:
+      context: ./data-collection
+      dockerfile: Dockerfile
+    env_file:
+      - ./data-collection/.env
+    # volumes:
+    #   - ./data-collection:/app
+    ports:
+      - '8080:8080'
+    command: go run main.go
