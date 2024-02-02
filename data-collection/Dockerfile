@@ -10,20 +10,14 @@ RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
 # Set the Current Working Directory inside the container
 WORKDIR /app
 
-# Copy go mod and sum files
-COPY go.mod go.sum ./
+# Copy the source from the current directory to the Working Directory inside the container
+COPY . .
 
 # Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
 RUN go mod download
 
-# Copy the source from the current directory to the Working Directory inside the container
-COPY . .
-
-# Create a separate directory for the crypto package
-RUN mkdir -p mycrypto
-
 # Generate Go code from the protobuf file in the crypto directory
-RUN protoc --go_out=./mycrypto --go_opt=paths=source_relative --go-grpc_out=./mycrypto --go-grpc_opt=paths=source_relative crypto.proto
+RUN protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative protos/crypto.proto
 
 # Build the Go app
 RUN go build -o main .

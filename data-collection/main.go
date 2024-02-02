@@ -1,15 +1,17 @@
 package main
 
 import (
-    "encoding/json"
-    "fmt"
-    "log"
-    "net/url"
-    "os"
-	"google.golang.org/grpc"
-    "github.com/gorilla/websocket"
-	"datacollection/mycrypto"
 	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/url"
+	"os"
+
+	mycrypto "datacollection/protos"
+
+	"github.com/gorilla/websocket"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -103,11 +105,4 @@ func main() {
 			}
 		}
 	}
-
-	// Close the stream and get the response from the server
-	response, err := stream.CloseAndRecv()
-	if err != nil {
-		log.Fatalf("Error when closing stream and receiving response: %v", err)
-	}
-	fmt.Printf("Response from Server: %v\n", response.GetResult())
 }

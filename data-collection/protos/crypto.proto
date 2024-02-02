@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package crypto;
 
-option go_package = "datacollection/mycrypto;mycrypto";
+option go_package = "/mycrypto";
 
 message CryptoData {
     string T = 1 [json_name="T"];  // Type
