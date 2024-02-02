@@ -59,7 +59,7 @@ func main() {
         return
     }
 
-	conn, err := grpc.Dial(":50051", grpc.WithInsecure())
+	conn, err := grpc.Dial("detection-algos:50051", grpc.WithInsecure())
 	if err != nil {
 		log.Printf("did not connect: %v", err)
 		// Don't return, just log the error
@@ -85,14 +85,40 @@ func main() {
 			log.Println("read:", err)
 			return
 		}
-		fmt.Printf("recv: %s\n", message)
+		//fmt.Printf("Client: %s\n", message)
 
-		// Unmarshal the message into a slice of CryptoData objects
-		var cryptoData []mycrypto.CryptoData
-		err = json.Unmarshal(message, &cryptoData)
+		type JSONCryptoData struct {
+			T string  `json:"T"`
+			S string  `json:"S"`
+			Bp float64 `json:"bp"`
+			Bs float64 `json:"bs"`
+			Ap float64 `json:"ap"`
+			As float64 `json:"as"`
+			Time string `json:"t"`
+		}
+		
+		fmt.Printf("Recv Message: %s\n", message)
+		
+		// Unmarshal the message into a slice of JSONCryptoData objects
+		var jsonData []JSONCryptoData
+		err = json.Unmarshal(message, &jsonData)
 		if err != nil {
 			log.Println("json unmarshal:", err)
 			continue
+		}
+		
+		// Convert JSONCryptoData objects to CryptoData objects
+		var cryptoData []mycrypto.CryptoData
+		for _, data := range jsonData {
+			cryptoData = append(cryptoData, mycrypto.CryptoData{
+				T: data.T,
+				S: data.S,
+				Bp: data.Bp,
+				Bs: data.Bs,
+				Ap: data.Ap,
+				As: data.As,
+				Time: data.Time,
+			})
 		}
 	
 		// Send each CryptoData object to the server

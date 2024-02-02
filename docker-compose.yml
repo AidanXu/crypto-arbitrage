@@ -6,8 +6,17 @@ services:
       dockerfile: Dockerfile
     env_file:
       - ./data-collection/.env
-    # volumes:
-    #   - ./data-collection:/app
+    volumes:
+      - ./data-collection:/app/src
+    command: go run main.go
+    depends_on:
+      - detection-algos
+  detection-algos:
+    build:
+      context: ./detection-algos
+      dockerfile: Dockerfile
+    volumes:
+      - ./detection-algos:/app/src
     ports:
       - '50051:50051'
     command: go run main.go
