@@ -107,6 +107,12 @@ func main() {
 		// Convert JSONCryptoData objects to CryptoData objects
 		var cryptoData []mycrypto.CryptoData
 		for _, data := range jsonData {
+
+			// Ignore control messages
+			if data.T == "success" || data.T == "subscription" {
+				continue
+			}
+
 			cryptoData = append(cryptoData, mycrypto.CryptoData{
 				T: data.T,
 				S: data.S,

@@ -1,11 +1,9 @@
 package cryptoGraph
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"strings"
-	"sync"
 )
 
 type Quote struct {
@@ -24,13 +22,11 @@ type Edge struct {
 
 type Graph struct {
     data map[string]map[string]Edge
-    mu   sync.RWMutex
 }
 
 func New() *Graph {
     return &Graph{
         data: make(map[string]map[string]Edge),
-        mu:   sync.RWMutex{},
     }
 }
 
@@ -55,18 +51,17 @@ func (g *Graph) AddQuote(quote Quote) {
     }
     (g.data)[quoteCurrency][base] = Edge{Rate: quote.AskPrice, Size: quote.AskSize}
 
-	fmt.Printf("Edge created: %s -> %s with Rate: %f and Size: %f\n", base, quoteCurrency, 1/quote.BidPrice, quote.BidSize)
-    fmt.Printf("Edge created: %s -> %s with Rate: %f and Size: %f\n", quoteCurrency, base, quote.AskPrice, quote.AskSize)
+	//fmt.Printf("Edge created: %s -> %s with Rate: %f and Size: %f\n", base, quoteCurrency, 1/quote.BidPrice, quote.BidSize)
+    //fmt.Printf("Edge created: %s -> %s with Rate: %f and Size: %f\n", quoteCurrency, base, quote.AskPrice, quote.AskSize)
 }
 
 func (g *Graph) FindArbitrage() [][]string {
-    // Step 1: Initialize distance map
     dist := make(map[string]float64)
+    prev := make(map[string]string)
     for vertex := range g.data {
         dist[vertex] = math.MaxFloat64
     }
 
-    // Use the first currency as the source
     var source string
     for vertex := range g.data {
         source = vertex
@@ -74,28 +69,33 @@ func (g *Graph) FindArbitrage() [][]string {
     }
     dist[source] = 0
 
-    // Step 2: Relax edges |V| - 1 times
+    // Relax edges |V| - 1 times
     for i := 0; i < len(g.data)-1; i++ {
         for vertex, edges := range g.data {
             for neighbor, edge := range edges {
                 if dist[vertex]+-math.Log(edge.Rate) < dist[neighbor] {
                     dist[neighbor] = dist[vertex] + -math.Log(edge.Rate)
+                    prev[neighbor] = vertex
                 }
             }
         }
     }
 
-    // Step 3: Check for a negative-weight cycle
-    arbitrageOpportunities := make([][]string, 0)
+    // Check for a negative-weight cycle
+    arbitrageCycles := make([][]string, 0)
     for vertex, edges := range g.data {
         for neighbor, edge := range edges {
             if dist[vertex]+-math.Log(edge.Rate) < dist[neighbor] {
-                // Negative cycle found, add the currencies involved to the list
-                arbitrageOpportunities = append(arbitrageOpportunities, []string{vertex, neighbor})
+                // Negative cycle found, trace back the path
+                cycle := []string{neighbor}
+                for v := vertex; v != neighbor; v = prev[v] {
+                    cycle = append([]string{v}, cycle...)
+                }
+                cycle = append([]string{neighbor}, cycle...)
+                arbitrageCycles = append(arbitrageCycles, cycle)
             }
         }
     }
 
-    // Return all arbitrage opportunities
-    return arbitrageOpportunities
+    return arbitrageCycles
 }
