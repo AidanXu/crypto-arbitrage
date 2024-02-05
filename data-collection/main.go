@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -85,7 +84,6 @@ func main() {
 			log.Println("read:", err)
 			return
 		}
-		//fmt.Printf("Client: %s\n", message)
 
 		type JSONCryptoData struct {
 			T string  `json:"T"`
@@ -97,7 +95,6 @@ func main() {
 			Time string `json:"t"`
 		}
 		
-		fmt.Printf("Recv Message: %s\n", message)
 		
 		// Unmarshal the message into a slice of JSONCryptoData objects
 		var jsonData []JSONCryptoData

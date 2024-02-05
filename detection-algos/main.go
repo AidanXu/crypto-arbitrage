@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net"
 
+	cryptoGraph "detection-algos/graph"
 	mycrypto "detection-algos/protos"
 
 	"google.golang.org/grpc"
@@ -12,9 +12,12 @@ import (
 
 type server struct {
     mycrypto.UnimplementedCryptoStreamServer
+    graph *cryptoGraph.Graph
 }
 
 func (s *server) StreamCrypto(stream mycrypto.CryptoStream_StreamCryptoServer) error {
+
+    // Process quotes as before
     for {
         data, err := stream.Recv()
         if err != nil {
@@ -22,7 +25,17 @@ func (s *server) StreamCrypto(stream mycrypto.CryptoStream_StreamCryptoServer) e
             return err
         }
 
-        fmt.Printf("Server: %v\n", data)
+        quote := cryptoGraph.Quote{
+            Symbol:    data.S,
+            BidPrice:  data.Bp,
+            BidSize:   data.Bs,
+            AskPrice:  data.Ap,
+            AskSize:   data.As,
+            Timestamp: data.Time,
+        }
+        s.graph.AddQuote(quote)
+
+        //fmt.Printf("Server: %v\n", data)
     }
 }
 
@@ -32,8 +45,10 @@ func main() {
         log.Fatalf("failed to listen: %v", err)
     }
 
+    g := cryptoGraph.New()
+
     s := grpc.NewServer()
-    mycrypto.RegisterCryptoStreamServer(s, &server{})
+    mycrypto.RegisterCryptoStreamServer(s, &server{graph: g})
 
     log.Println("Server is running on port 50051...")
     if err := s.Serve(lis); err != nil {
