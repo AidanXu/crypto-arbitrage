@@ -4,8 +4,6 @@ services:
     build:
       context: ./data-collection
       dockerfile: Dockerfile
-    env_file:
-      - ./data-collection/.env
     volumes:
       - ./data-collection:/app/src
     command: go run main.go

@@ -5,13 +5,11 @@ package crypto;
 option go_package = "/mycrypto";
 
 message CryptoData {
-    string T = 1;  // Type
-    string S = 2;  // Symbol
-    double Bp = 3;  // Bid Price
-    double Bs = 4;  // Bid Size
-    double Ap = 5;  // Ask Price
-    double As = 6;  // Ask Size
-    string Time = 7;  // Time
+    string S = 1;  // Symbol
+    double Bp = 2;  // Bid Price
+    double Bs = 3;  // Bid Size
+    double Ap = 4;  // Ask Price
+    double As = 5;  // Ask Size
 }
 
 service CryptoStream {

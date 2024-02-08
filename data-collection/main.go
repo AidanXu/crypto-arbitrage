@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/url"
-	"os"
 
 	mycrypto "datacollection/protos"
 
@@ -14,48 +13,69 @@ import (
 )
 
 func main() {
-    apiKey := os.Getenv("API_KEY")
-    secret := os.Getenv("SECRET")
+    u := url.URL{Scheme: "wss", Host: "stream.binance.com:9443", Path: "/ws"}
 
-    u := url.URL{Scheme: "wss", Host: "stream.data.alpaca.markets", Path: "/v1beta3/crypto/us"}
     c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
     if err != nil {
         log.Fatal("dial:", err)
     }
     defer c.Close()
 
-    // Send authentication message
-    authMessage := map[string]string{
-        "action": "auth",
-        "key":    apiKey,
-        "secret": secret,
-    }
-    authMessageJSON, _ := json.Marshal(authMessage)
-    err = c.WriteMessage(websocket.TextMessage, authMessageJSON)
-    if err != nil {
-        log.Println("write:", err)
-        return
+    subscribe := map[string]interface{}{
+        "method": "SUBSCRIBE",
+        "params": []string{
+			"btcusdt@bookTicker",
+			"ethusdt@bookTicker",
+			"bnbusdt@bookTicker",
+			"xrpusdt@bookTicker",
+			"adausdt@bookTicker",
+			"solusdt@bookTicker",
+			"dotusdt@bookTicker",
+			"ltcusdt@bookTicker",
+			"bchusdt@bookTicker",
+			"linkusdt@bookTicker",
+			"xlmusdt@bookTicker",
+			"uniusdt@bookTicker",
+			"dogeusdt@bookTicker",
+			"wbtcusdt@bookTicker",
+			"aaveusdt@bookTicker",
+			"atomusdt@bookTicker",
+			"btceth@bookTicker",
+			"ethbtc@bookTicker",
+			"bnbbtc@bookTicker",
+			"bnbeth@bookTicker",
+			"xrpbtc@bookTicker",
+			"xrpeth@bookTicker",
+			"adabtc@bookTicker",
+			"adaeth@bookTicker",
+			"solbtc@bookTicker",
+			"soleth@bookTicker",
+			"dotbtc@bookTicker",
+			"doteth@bookTicker",
+			"ltcbtc@bookTicker",
+			"ltceth@bookTicker",
+			"bchbtc@bookTicker",
+			"bcheth@bookTicker",
+			"linkbtc@bookTicker",
+			"linketh@bookTicker",
+			"xlmbtc@bookTicker",
+			"xlmeth@bookTicker",
+			"unibtc@bookTicker",
+			"unieth@bookTicker",
+			"dogebtc@bookTicker",
+			"dogeeth@bookTicker",
+			"wbtceth@bookTicker",
+			"aavebtc@bookTicker",
+			"aaveeth@bookTicker",
+			"atombtc@bookTicker",
+			"atometh@bookTicker",
+        },
+        "id": 1,
     }
 
-    // Send subscription message
-    subscriptionMessage := map[string]interface{}{
-        "action": "subscribe",
-        "trades": []string{},
-        "quotes": []string{
-            "BTC/USD", "ETH/USD", "BNB/USD", "USDT/USD", "USDC/USD",
-            "XRP/USD", "ADA/USD", "DOT/USD", "LTC/USD", "BCH/USD",
-            "LINK/USD", "XLM/USD", "UNI/USD", "DOGE/USD", "WBTC/USD",
-            "AAVE/USD", "ATOM/USD", "XMR/USD", "XTZ/USD", "EOS/USD",
-            "BSV/USD", "TRX/USD", "VET/USD", "SOL/USD", "MIOTA/USD",
-            "THETA/USD", "SNX/USD", "NEO/USD", "MKR/USD", "COMP/USD",
-        },
-        "bars": []string{},
-    }
-    subscriptionMessageJSON, _ := json.Marshal(subscriptionMessage)
-    err = c.WriteMessage(websocket.TextMessage, subscriptionMessageJSON)
+    err = c.WriteJSON(subscribe)
     if err != nil {
-        log.Println("write:", err)
-        return
+        log.Fatal("subscribe:", err)
     }
 
 	conn, err := grpc.Dial("detection-algos:50051", grpc.WithInsecure())
@@ -77,61 +97,40 @@ func main() {
 		}
 	}
 
-		// Handle incoming messages
-	for {
-		_, message, err := c.ReadMessage()
+    for {
+        _, message, err := c.ReadMessage()
+        if err != nil {
+            log.Println("read:", err)
+            return
+        }
+
+        //log.Printf("recv: %s", message)
+
+		type CryptoDataJSON struct {
+			S  string  `json:"s"`
+			Bp float64 `json:"b,string"`
+			Bs float64 `json:"B,string"`
+			Ap float64 `json:"a,string"`
+			As float64 `json:"A,string"`
+		}
+
+		var data CryptoDataJSON
+		err = json.Unmarshal(message, &data)
 		if err != nil {
-			log.Println("read:", err)
-			return
+			log.Fatalf("Failed to unmarshal JSON: %v", err)
 		}
 
-		type JSONCryptoData struct {
-			T string  `json:"T"`
-			S string  `json:"S"`
-			Bp float64 `json:"bp"`
-			Bs float64 `json:"bs"`
-			Ap float64 `json:"ap"`
-			As float64 `json:"as"`
-			Time string `json:"t"`
+		cryptoData := &mycrypto.CryptoData{
+			S:  data.S,
+			Bp: data.Bp,
+			Bs: data.Bs,
+			Ap: data.Ap,
+			As: data.As,
 		}
-		
-		
-		// Unmarshal the message into a slice of JSONCryptoData objects
-		var jsonData []JSONCryptoData
-		err = json.Unmarshal(message, &jsonData)
-		if err != nil {
-			log.Println("json unmarshal:", err)
-			continue
-		}
-		
-		// Convert JSONCryptoData objects to CryptoData objects
-		var cryptoData []mycrypto.CryptoData
-		for _, data := range jsonData {
 
-			// Ignore control messages
-			if data.T == "success" || data.T == "subscription" {
-				continue
-			}
+		if err := stream.Send(cryptoData); err != nil {
+			log.Fatalf("Failed to send data: %v", err)
+		}
 
-			cryptoData = append(cryptoData, mycrypto.CryptoData{
-				T: data.T,
-				S: data.S,
-				Bp: data.Bp,
-				Bs: data.Bs,
-				Ap: data.Ap,
-				As: data.As,
-				Time: data.Time,
-			})
-		}
-	
-		// Send each CryptoData object to the server
-		for _, data := range cryptoData {
-			if stream != nil {
-				if err := stream.Send(&data); err != nil {
-					log.Println("stream send:", err)
-					return
-				}
-			}
-		}
-	}
+    }
 }

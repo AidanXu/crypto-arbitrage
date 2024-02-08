@@ -3,16 +3,15 @@ package cryptoGraph
 import (
 	"log"
 	"math"
-	"strings"
+	"regexp"
 )
 
 type Quote struct {
-    Symbol    string
-    BidPrice  float64
-    BidSize   float64
-    AskPrice  float64
-    AskSize   float64
-    Timestamp string
+    S    string
+    Bp  float64
+    Bs   float64
+    Ap  float64
+    As   float64
 }
 
 type Edge struct {
@@ -31,28 +30,50 @@ func New() *Graph {
 }
 
 func (g *Graph) AddQuote(quote Quote) {
-	// don't add logging
-    if !strings.Contains(quote.Symbol, "/") {
-        log.Printf("Invalid symbol: %s", quote.Symbol)
+    if quote.S == "" {
+        log.Printf("Invalid symbol: %s", quote.S)
         return
     }
 
-    currencies := strings.Split(quote.Symbol, "/")
-    base, quoteCurrency := currencies[0], currencies[1]
+    re := regexp.MustCompile(`([A-Z]+)(BTC|ETH|BNB|XRP|ADA|SOL|DOT|LTC|BCH|LINK|XLM|UNI|DOGE|WBTC|AAVE|ATOM|USDT)`)
+    match := re.FindStringSubmatch(quote.S)
+    if len(match) < 3 {
+        log.Printf("Invalid symbol: %s", quote.S)
+        return
+    }
 
-    // Update edges
-    if _, exists := (g.data)[base]; !exists {
+    base, quoteCurrency := match[1], match[2]
+
+    // Preprocessing: Using negative logarithm of the exchange rates
+    transformedBidRate := -math.Log(1 / quote.Bp)
+    transformedAskRate := -math.Log(quote.Ap)
+
+    // Check for existing rates and only update if there's a change
+    baseEdges, baseExists := (g.data)[base]
+    if baseExists {
+        if edge, exists := baseEdges[quoteCurrency]; exists && edge.Rate == transformedBidRate {
+            // If the rate hasn't changed, return without updating
+            return
+        }
+    } else {
         (g.data)[base] = make(map[string]Edge)
     }
-    (g.data)[base][quoteCurrency] = Edge{Rate: 1 / quote.BidPrice, Size: quote.BidSize}
 
-    if _, exists := (g.data)[quoteCurrency]; !exists {
+    // Since there's a change or the pair doesn't exist, update the rate
+    (g.data)[base][quoteCurrency] = Edge{Rate: transformedBidRate, Size: quote.Bs}
+
+    quoteEdges, quoteExists := (g.data)[quoteCurrency]
+    if quoteExists {
+        if edge, exists := quoteEdges[base]; exists && edge.Rate == transformedAskRate {
+            // If the rate hasn't changed, return without updating
+            return
+        }
+    } else {
         (g.data)[quoteCurrency] = make(map[string]Edge)
     }
-    (g.data)[quoteCurrency][base] = Edge{Rate: quote.AskPrice, Size: quote.AskSize}
 
-	//fmt.Printf("Edge created: %s -> %s with Rate: %f and Size: %f\n", base, quoteCurrency, 1/quote.BidPrice, quote.BidSize)
-    //fmt.Printf("Edge created: %s -> %s with Rate: %f and Size: %f\n", quoteCurrency, base, quote.AskPrice, quote.AskSize)
+    // Since there's a change or the pair doesn't exist, update the rate
+    (g.data)[quoteCurrency][base] = Edge{Rate: transformedAskRate, Size: quote.As}
 }
 
 func (g *Graph) FindArbitrage() [][]string {
