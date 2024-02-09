@@ -21,6 +21,16 @@ type Edge struct {
     Size float64
 }
 
+type RouteStep struct {
+    From   string
+    To     string
+    EdgeData Edge
+}
+
+type RouteInfo struct {
+    Route []RouteStep
+}
+
 type Graph struct {
     data map[string]map[string]Edge
     Mu  sync.RWMutex
@@ -33,21 +43,16 @@ func New() *Graph {
 }
 
 func (g *Graph) Snapshot() *Graph {
-    // Create a new graph instance for the snapshot
     snapshot := New()
 
-    // Lock the original graph to ensure consistency during the copy
-    g.Mu.RLock() // Assuming you have a mutex `mu` in your Graph struct for synchronization
+    g.Mu.RLock() 
     defer g.Mu.RUnlock()
 
-    // Iterate over the original graph data and copy it to the snapshot
     for from, edges := range g.data {
         if _, exists := snapshot.data[from]; !exists {
             snapshot.data[from] = make(map[string]Edge)
         }
         for to, edge := range edges {
-            // Copy each edge. Since Edge struct contains only primitive types,
-            // a simple assignment is enough for a deep copy here.
             snapshot.data[from][to] = Edge{
                 Rate: edge.Rate,
                 Size: edge.Size,
@@ -171,13 +176,12 @@ func (g *Graph) DetectNegativeCycle() bool {
 }
 
 // Using shortest path faster for negative cycle detection and reconstruction
-func (G *Graph) SPFA() (bool, []string) {
+func (G *Graph) SPFA() (bool, RouteInfo) {
 	dis := make(map[string]float64)
 	pathLen := make(map[string]int)
     pre := make(map[string]string)
 	queue := list.New()
 
-	// Initialize distances and enqueue all vertices
 	for v := range G.data {
 		dis[v] = 0
 		pathLen[v] = 0
@@ -185,7 +189,6 @@ func (G *Graph) SPFA() (bool, []string) {
 		queue.PushBack(v)
 	}
 
-	// Number of vertices
 	n := len(G.data)
 
 	for queue.Len() > 0 {
@@ -204,7 +207,7 @@ func (G *Graph) SPFA() (bool, []string) {
 				pathLen[v] = pathLen[u] + 1
 				if pathLen[v] >= n {
                     // Negative cycle detected
-                    tracedPath, found := Trace(pre, v)
+                    tracedPath, found := Trace(G, pre, v)
 					if (found) {
                         return true, tracedPath
                     }
@@ -217,11 +220,10 @@ func (G *Graph) SPFA() (bool, []string) {
 			}
 		}
 	}
-
-	return false, []string{"nocycle"}
+    var empty RouteInfo;
+	return false, empty
 }
 
-// contains checks if a value is in the queue.
 func contains(queue *list.List, value string) bool {
 	for e := queue.Front(); e != nil; e = e.Next() {
 		if e.Value.(string) == value {
@@ -231,57 +233,51 @@ func contains(queue *list.List, value string) bool {
 	return false
 }
 
-func Trace(pre map[string]string, startV string) ([]string, bool) {
-    visited := make(map[string]bool) // Tracks visited vertices to detect the cycle start
-    var cycle []string // Stores the reconstructed cycle
-
-    // Use 'v' to trace through the cycle, starting from 'startV'
-    v := startV
-
-    // 'prev' will track the last vertex we added to 'cycle' to prevent consecutive duplicates
-    var prev string
+func Trace(G *Graph, pre map[string]string, startV string) (RouteInfo, bool) {
+    visited := make(map[string]bool)
+    var tempCycle []string 
+    
+    v := startV 
+    prev := ""
 
     for {
-        // Detect the cycle's start (where we loop back)
         if visited[v] {
-            // Loop to construct the cycle from 'cycleStart' back to itself
             cycleStart := v
-            tempCycle := []string{cycleStart} // Temporary slice to construct the cycle
-            
-            // Trace back the cycle, ensuring no consecutive vertices are identical
-            for v = pre[cycleStart]; v != cycleStart; v = pre[v] {
-                // Insert 'v' into 'tempCycle' if it's not identical to the last inserted vertex
-                if v != prev {
-                    tempCycle = append([]string{v}, tempCycle...)
-                    prev = v
-                } else {
-                    // Found consecutive identical vertices, indicating an invalid cycle
-                    return nil, false
+            tempCycle = append(tempCycle, cycleStart)
+
+            var routeSteps []RouteStep
+            isValidCycle := len(tempCycle) > 1 && tempCycle[0] == tempCycle[len(tempCycle)-1]
+
+            // Iterate through tempCycle to construct routeSteps with edge data
+            for i := 0; i < len(tempCycle)-1 && isValidCycle; i++ {
+                from := tempCycle[i]
+                to := tempCycle[i+1]
+                if from == to { 
+                    return RouteInfo{}, false
                 }
+                edge, exists := G.data[from][to]
+                if !exists { // Edge must exist for a valid route step
+                    return RouteInfo{}, false
+                }
+                routeSteps = append(routeSteps, RouteStep{From: from, To: to, EdgeData: Edge{Rate: edge.Rate, Size: edge.Size}})
             }
 
-            // Verify the cycle is valid (contains at least 3 distinct vertices)
-            if len(tempCycle) >= 3 {
-                // The cycle is valid; prepend 'cycleStart' to close the cycle
-                return append([]string{cycleStart}, tempCycle...), true
+            // at least 3 distinct vertices
+            if len(routeSteps) >= 3 && isValidCycle {
+                return RouteInfo{Route: routeSteps}, true
             } else {
-                return nil, false // The cycle does not meet the criteria
+                return RouteInfo{}, false
             }
         }
 
-        // Mark the vertex as visited and add it to the cycle
         visited[v] = true
-        if v != prev {
-            cycle = append(cycle, v)
-            prev = v
-        }
+        tempCycle = append(tempCycle, v)
 
-        // Move to the predecessor, ensuring it exists
         nextV, exists := pre[v]
-        if !exists {
-            // The predecessor does not exist; invalid cycle
-            return nil, false
+        if !exists || v == prev { 
+            return RouteInfo{}, false
         }
+        prev = v
         v = nextV
     }
 }

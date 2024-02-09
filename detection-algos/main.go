@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
 	"time"
@@ -56,11 +57,34 @@ func main() {
         ticker := time.NewTicker(time.Millisecond)
         defer ticker.Stop()
 
+        conn, err := grpc.Dial("trade-service:50052", grpc.WithInsecure())
+        if err != nil {
+            log.Printf("Failed to connect: %v", err)
+        }
+        defer conn.Close()
+
+        client := mycrypto.NewTradeStreamClient(conn)
+
         for range ticker.C {
             snapshot := srv.graph.Snapshot()
             found, arbitragePaths := snapshot.SPFA()
-            if (found) == true {
-                log.Println("Negative cycle detected", arbitragePaths)
+            if found {
+
+                tradeRequest := &mycrypto.TradeRequest{
+                    TradeRoute: make([]*mycrypto.TradeInfo, len(arbitragePaths.Route)),
+                }
+                for i, step := range arbitragePaths.Route {
+                    tradeRequest.TradeRoute[i] = &mycrypto.TradeInfo{
+                        S:     step.From,
+                        E:     step.To,
+                        Rate:  float32(step.EdgeData.Rate),
+                        Size:  float32(step.EdgeData.Size),
+                    }
+                }
+        
+                if _, err := client.StreamTrades(context.Background(), tradeRequest); err != nil {
+                    log.Fatalf("Failed to send trade request: %v", err)
+                }
             } else {
                 //log.Println("No arbitrage opportunities detected")
             }

@@ -18,3 +18,14 @@ services:
     ports:
       - '50051:50051'
     command: go run main.go
+    depends_on:
+      - trade-service
+  trade-service:
+    build:
+      context: ./trade-service
+      dockerfile: Dockerfile
+    volumes:
+      - ./trade-service:/app/src
+    ports:
+      - '50052:50052'
+    command: go run main.go

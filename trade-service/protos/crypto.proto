@@ -4,14 +4,6 @@ package crypto;
 
 option go_package = "/mycrypto";
 
-message CryptoData {
-    string S = 1;  // Symbol
-    double Bp = 2;  // Bid Price
-    double Bs = 3;  // Bid Size
-    double Ap = 4;  // Ask Price
-    double As = 5;  // Ask Size
-}
-
 message TradeInfo {
   string S = 1; // start
   string E = 2; // end
@@ -19,16 +11,8 @@ message TradeInfo {
   float Size = 4;
 }
 
-service CryptoStream {
-  rpc StreamCrypto (stream CryptoData) returns (StreamResponse);
-}
-
 service TradeStream {
   rpc StreamTrades (TradeRequest) returns (TradeResponse);
-}
-
-message StreamResponse {
-    string result = 1;
 }
 
 message TradeRequest {
