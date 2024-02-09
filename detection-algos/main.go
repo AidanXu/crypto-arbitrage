@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"net"
+	"sync"
+	"time"
 
 	cryptoGraph "detection-algos/graph"
 	mycrypto "detection-algos/protos"
@@ -13,11 +15,11 @@ import (
 type server struct {
     mycrypto.UnimplementedCryptoStreamServer
     graph *cryptoGraph.Graph
+    mu    sync.RWMutex
 }
 
 func (s *server) StreamCrypto(stream mycrypto.CryptoStream_StreamCryptoServer) error {
 
-    // Process quotes as before
     for {
         data, err := stream.Recv()
         if err != nil {
@@ -32,9 +34,9 @@ func (s *server) StreamCrypto(stream mycrypto.CryptoStream_StreamCryptoServer) e
             Ap:  data.Ap,
             As:   data.As,
         }
-        s.graph.AddQuote(quote)
-
-        //fmt.Printf("Server: %v\n", data)
+        s.mu.Lock();
+        s.graph.AddQuote(quote);
+        s.mu.Unlock();
     }
 }
 
@@ -46,8 +48,27 @@ func main() {
 
     g := cryptoGraph.New()
 
+    srv := &server{graph: g}
+
     s := grpc.NewServer()
-    mycrypto.RegisterCryptoStreamServer(s, &server{graph: g})
+    mycrypto.RegisterCryptoStreamServer(s, srv)
+
+    //Goroutine for periodic arbitrage checks
+    go func(srv *server) {
+        ticker := time.NewTicker(time.Millisecond)
+        defer ticker.Stop()
+
+        for range ticker.C {
+            srv.mu.RLock()
+            arbitragePaths := srv.graph.DetectNegativeCycle()
+            srv.mu.RUnlock()
+            if (arbitragePaths) == true {
+                //log.Println("Arbitrage opportunity detected:")
+            } else {
+                //log.Println("No arbitrage opportunities detected")
+            }
+        }
+    }(srv)
 
     log.Println("Server is running on port 50051...")
     

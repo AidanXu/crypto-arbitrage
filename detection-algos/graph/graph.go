@@ -48,75 +48,89 @@ func (g *Graph) AddQuote(quote Quote) {
     transformedBidRate := -math.Log(1 / quote.Bp)
     transformedAskRate := -math.Log(quote.Ap)
 
-    // Check for existing rates and only update if there's a change
-    baseEdges, baseExists := (g.data)[base]
-    if baseExists {
-        if edge, exists := baseEdges[quoteCurrency]; exists && edge.Rate == transformedBidRate {
-            // If the rate hasn't changed, return without updating
-            return
-        }
-    } else {
-        (g.data)[base] = make(map[string]Edge)
-    }
-
-    // Since there's a change or the pair doesn't exist, update the rate
-    (g.data)[base][quoteCurrency] = Edge{Rate: transformedBidRate, Size: quote.Bs}
+   // Check for existing rates and only update if there's a change
+   baseEdges, baseExists := (g.data)[base]
+   if baseExists {
+       if edge, exists := baseEdges[quoteCurrency]; exists {
+           if edge.Rate != transformedBidRate {
+               // If the rate has changed, update it
+               (g.data)[base][quoteCurrency] = Edge{Rate: transformedBidRate, Size: quote.Bs}
+               //log.Printf("Updated edge: %s -> %s: %+v", base, quoteCurrency, (g.data)[base][quoteCurrency])
+           }
+       } else {
+           // If the edge doesn't exist, create it
+           (g.data)[base][quoteCurrency] = Edge{Rate: transformedBidRate, Size: quote.Bs}
+           //log.Printf("Created edge: %s -> %s: %+v", base, quoteCurrency, (g.data)[base][quoteCurrency])
+       }
+   } else {
+       (g.data)[base] = make(map[string]Edge)
+       (g.data)[base][quoteCurrency] = Edge{Rate: transformedBidRate, Size: quote.Bs}
+       //log.Printf("Created edge: %s -> %s: %+v", base, quoteCurrency, (g.data)[base][quoteCurrency])
+   }
 
     quoteEdges, quoteExists := (g.data)[quoteCurrency]
     if quoteExists {
-        if edge, exists := quoteEdges[base]; exists && edge.Rate == transformedAskRate {
-            // If the rate hasn't changed, return without updating
-            return
+        if edge, exists := quoteEdges[base]; exists {
+            if edge.Rate != transformedAskRate {
+                // If the rate has changed, update it
+                (g.data)[quoteCurrency][base] = Edge{Rate: transformedAskRate, Size: quote.As}
+                //log.Printf("Updated edge: %s -> %s: %+v", quoteCurrency, base, (g.data)[quoteCurrency][base])
+            }
+        } else {
+            // If the edge doesn't exist, create it
+            (g.data)[quoteCurrency][base] = Edge{Rate: transformedAskRate, Size: quote.As}
+            //log.Printf("Created edge: %s -> %s: %+v", quoteCurrency, base, (g.data)[quoteCurrency][base])
         }
     } else {
         (g.data)[quoteCurrency] = make(map[string]Edge)
+        (g.data)[quoteCurrency][base] = Edge{Rate: transformedAskRate, Size: quote.As}
+        //log.Printf("Created edge: %s -> %s: %+v", quoteCurrency, base, (g.data)[quoteCurrency][base])
     }
 
-    // Since there's a change or the pair doesn't exist, update the rate
-    (g.data)[quoteCurrency][base] = Edge{Rate: transformedAskRate, Size: quote.As}
 }
 
-func (g *Graph) FindArbitrage() [][]string {
+
+// Using bellman ford
+func (g *Graph) DetectNegativeCycle() bool {
+    // Initialization
     dist := make(map[string]float64)
-    prev := make(map[string]string)
     for vertex := range g.data {
         dist[vertex] = math.MaxFloat64
     }
 
-    var source string
+    var startVertex string
     for vertex := range g.data {
-        source = vertex
+        startVertex = vertex
         break
     }
-    dist[source] = 0
+    dist[startVertex] = 0
 
-    // Relax edges |V| - 1 times
+    // Relaxation
     for i := 0; i < len(g.data)-1; i++ {
-        for vertex, edges := range g.data {
-            for neighbor, edge := range edges {
-                if dist[vertex]+-math.Log(edge.Rate) < dist[neighbor] {
-                    dist[neighbor] = dist[vertex] + -math.Log(edge.Rate)
-                    prev[neighbor] = vertex
+        updateOccurred := false
+        for u, neighbors := range g.data {
+            for v, edge := range neighbors {
+                if dist[u] != math.MaxFloat64 && dist[u]+edge.Rate < dist[v] {
+                    dist[v] = dist[u] + edge.Rate
+                    updateOccurred = true
                 }
+            }
+        }
+        if !updateOccurred {
+            break
+        }
+    }
+
+    // Check for negative cycles
+    for u, neighbors := range g.data {
+        for v, edge := range neighbors {
+            if dist[u] != math.MaxFloat64 && dist[u]+edge.Rate < dist[v] {
+                return true // Negative cycle detected
             }
         }
     }
 
-    // Check for a negative-weight cycle
-    arbitrageCycles := make([][]string, 0)
-    for vertex, edges := range g.data {
-        for neighbor, edge := range edges {
-            if dist[vertex]+-math.Log(edge.Rate) < dist[neighbor] {
-                // Negative cycle found, trace back the path
-                cycle := []string{neighbor}
-                for v := vertex; v != neighbor; v = prev[v] {
-                    cycle = append([]string{v}, cycle...)
-                }
-                cycle = append([]string{neighbor}, cycle...)
-                arbitrageCycles = append(arbitrageCycles, cycle)
-            }
-        }
-    }
-
-    return arbitrageCycles
+    return false // No negative cycle found
 }
+
+// Using shortest path faster for negative cycle detection and reconstruction
