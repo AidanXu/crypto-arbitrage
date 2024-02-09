@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net"
-	"sync"
 	"time"
 
 	cryptoGraph "detection-algos/graph"
@@ -15,7 +14,6 @@ import (
 type server struct {
     mycrypto.UnimplementedCryptoStreamServer
     graph *cryptoGraph.Graph
-    mu    sync.RWMutex
 }
 
 func (s *server) StreamCrypto(stream mycrypto.CryptoStream_StreamCryptoServer) error {
@@ -34,9 +32,9 @@ func (s *server) StreamCrypto(stream mycrypto.CryptoStream_StreamCryptoServer) e
             Ap:  data.Ap,
             As:   data.As,
         }
-        s.mu.Lock();
+        s.graph.Mu.Lock();
         s.graph.AddQuote(quote);
-        s.mu.Unlock();
+        s.graph.Mu.Unlock();
     }
 }
 
@@ -59,11 +57,10 @@ func main() {
         defer ticker.Stop()
 
         for range ticker.C {
-            srv.mu.RLock()
-            arbitragePaths := srv.graph.DetectNegativeCycle()
-            srv.mu.RUnlock()
-            if (arbitragePaths) == true {
-                //log.Println("Arbitrage opportunity detected:")
+            snapshot := srv.graph.Snapshot()
+            found, arbitragePaths := snapshot.SPFA()
+            if (found) == true {
+                log.Println("Negative cycle detected", arbitragePaths)
             } else {
                 //log.Println("No arbitrage opportunities detected")
             }
