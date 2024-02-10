@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-    u := url.URL{Scheme: "wss", Host: "stream.binance.com:9443", Path: "/ws"}
+    u := url.URL{Scheme: "wss", Host: "testnet.binance.vision", Path: "/ws"}
 
     c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
     if err != nil {

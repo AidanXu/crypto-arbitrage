@@ -1,2 +1,3 @@
 /data-collection/.env
 .vscode
+/trade-service/.env

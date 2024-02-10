@@ -24,6 +24,8 @@ services:
     build:
       context: ./trade-service
       dockerfile: Dockerfile
+    env_file:
+      - ./trade-service/.env
     volumes:
       - ./trade-service:/app/src
     ports:

@@ -80,13 +80,12 @@ func (g *Graph) AddQuote(quote Quote) {
     base, quoteCurrency := match[1], match[2]
 
     // Preprocessing: Using negative logarithm of the exchange rates
-    // Assuming a 0.1% transaction fee for simplicity
-    transactionFee := 0.001
+    transactionFee := 0.000
 
-    effectiveBidRate := quote.Bp * (1 - 2*transactionFee)
+    effectiveBidRate := quote.Bp * (1 - transactionFee)
     transformedBidRate := -math.Log(1 / effectiveBidRate)
 
-    effectiveAskRate := quote.Ap * (1 + 2*transactionFee)
+    effectiveAskRate := quote.Ap * (1 + transactionFee)
     transformedAskRate := -math.Log(effectiveAskRate)
 
 
