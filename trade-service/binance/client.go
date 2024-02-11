@@ -15,7 +15,7 @@ import (
 )
 
 const (
-    BaseURL = "https://testnet.binance.vision"
+    BaseURL = "https://testnet.binance.vision/api/v3/"
 )
 
 type Client struct {

@@ -18,6 +18,7 @@ type server struct {
     sum float64
     count int
     lowestSum float64
+    lowestRoute []*mycrypto.TradeInfo
 }
 
 // StreamTrades implements the StreamTrades method of the TradeSendServer interface
@@ -30,6 +31,7 @@ func (s *server) StreamTrades(ctx context.Context, req *mycrypto.TradeRequest) (
     s.mu.Lock()
     if s.count == 0 || sum < s.lowestSum {
         s.lowestSum = sum
+        s.lowestRoute = req.TradeRoute
     }
     s.sum += sum
     s.count++
@@ -57,12 +59,18 @@ func main() {
             tradeServer.mu.Lock()
             average := tradeServer.sum / float64(tradeServer.count)
             lowestSum := tradeServer.lowestSum
+            totalTrades := tradeServer.count
+            lowestRoute := tradeServer.lowestRoute
             tradeServer.sum = 0
             tradeServer.count = 0
             tradeServer.lowestSum = 0
+            tradeServer.lowestRoute = nil
             tradeServer.mu.Unlock()
 
-            log.Printf("Average sum of loop: %f, Lowest Sum: %f", average, lowestSum)
+            log.Printf("Average sum of loop: %f, Lowest Sum: %f, Total Routes: %d", average, lowestSum, totalTrades)
+            if lowestRoute != nil {
+                log.Printf("Route with lowest sum: %v", lowestRoute)
+            }
         }
     }()
 
@@ -70,7 +78,7 @@ func main() {
     mycrypto.RegisterTradeStreamServer(grpcServer, tradeServer)
 
     // Serve gRPC server
-    log.Println("Serving gRPC on 0.0.0.0:50052")
+    log.Println("Serving gRPC on 50052")
     if err := grpcServer.Serve(lis); err != nil {
         log.Fatalf("Failed to serve: %v", err)
     }

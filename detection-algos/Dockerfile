@@ -22,8 +22,7 @@ RUN protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_o
 # Build the Go app
 RUN go build -o main .
 
-# Expose port 8080 to the outside world
-EXPOSE 8080
+EXPOSE 50051
 
 # Command to run the executable
 CMD ["./main"]
