@@ -1,9 +1,6 @@
 package binance
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"io"
 	"log"
 	"net/http"
@@ -15,7 +12,7 @@ import (
 )
 
 const (
-    BaseURL = "https://testnet.binance.vision/api/v3/"
+    BaseURL = "https://testnet.binance.vision"
 )
 
 type Client struct {
@@ -45,15 +42,7 @@ func (c *Client) DoGetRequest(endpoint string, params map[string]string) ([]byte
     }
     queryString := values.Encode()
 
-    // Generate signature
-    mac := hmac.New(sha256.New, []byte(c.SecretKey))
-    mac.Write([]byte(queryString))
-    signature := hex.EncodeToString(mac.Sum(nil))
-
-    // Add signature to query string
-    queryStringWithSignature := queryString + "&signature=" + signature
-
-    req, err := http.NewRequest("GET", BaseURL+endpoint+"?"+queryStringWithSignature, nil)
+    req, err := http.NewRequest("GET", BaseURL+endpoint+"?"+queryString, nil)
     if err != nil {
         return nil, err
     }

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	binance "trade-service/binance"
 	mycrypto "trade-service/protos"
 
 	"google.golang.org/grpc"
@@ -37,6 +38,11 @@ func (s *server) StreamTrades(ctx context.Context, req *mycrypto.TradeRequest) (
     s.count++
     s.mu.Unlock()
 
+    // Filter for profitable routes
+    if sum < -0.003 {
+        binance.CheckRoute(req.TradeRoute)
+    }
+
     return &mycrypto.TradeResponse{}, nil
 }
 
@@ -60,7 +66,7 @@ func main() {
             average := tradeServer.sum / float64(tradeServer.count)
             lowestSum := tradeServer.lowestSum
             totalTrades := tradeServer.count
-            lowestRoute := tradeServer.lowestRoute
+            //lowestRoute := tradeServer.lowestRoute
             tradeServer.sum = 0
             tradeServer.count = 0
             tradeServer.lowestSum = 0
@@ -68,9 +74,9 @@ func main() {
             tradeServer.mu.Unlock()
 
             log.Printf("Average sum of loop: %f, Lowest Sum: %f, Total Routes: %d", average, lowestSum, totalTrades)
-            if lowestRoute != nil {
-                log.Printf("Route with lowest sum: %v", lowestRoute)
-            }
+            // if lowestRoute != nil {
+            //     log.Printf("Route with lowest sum: %v", lowestRoute)
+            // }
         }
     }()
 
