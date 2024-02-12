@@ -39,7 +39,7 @@ func (s *server) StreamTrades(ctx context.Context, req *mycrypto.TradeRequest) (
     s.mu.Unlock()
 
     // Filter for profitable routes
-    if sum < -0.003 {
+    if sum < -0.0075 {
         binance.CheckRoute(req.TradeRoute)
     }
 
