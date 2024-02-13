@@ -130,7 +130,6 @@ func (g *Graph) AddQuote(quote Quote) {
 
 }
 
-
 // Using bellman ford
 func (g *Graph) DetectNegativeCycle() bool {
     // Initialization

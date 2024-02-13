@@ -1,4 +1,4 @@
-version: '3'
+version: '2.4'
 services:
   data-collection:
     build:
@@ -20,6 +20,8 @@ services:
     command: go run main.go
     depends_on:
       - trade-service
+    mem_limit: 8192m
+    cpus: 4.0
   trade-service:
     build:
       context: ./trade-service

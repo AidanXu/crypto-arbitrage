@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -15,6 +16,7 @@ import (
 type server struct {
     mycrypto.UnimplementedCryptoStreamServer
     graph *cryptoGraph.Graph
+    count int
 }
 
 func (s *server) StreamCrypto(stream mycrypto.CryptoStream_StreamCryptoServer) error {
@@ -51,25 +53,30 @@ func main() {
 
     s := grpc.NewServer()
     mycrypto.RegisterCryptoStreamServer(s, srv)
-
-    //Goroutine for periodic arbitrage checks
-    go func(srv *server) {
-        ticker := time.NewTicker(time.Millisecond)
+    
+    conn, err := grpc.Dial("trade-service:50052", grpc.WithInsecure())
+    if err != nil {
+        log.Fatalf("Failed to connect: %v", err)
+    }
+    defer conn.Close()
+    
+    client := mycrypto.NewTradeStreamClient(conn)
+    
+    go func(srv *server, client mycrypto.TradeStreamClient) {
+        defer func() {
+            if r := recover(); r != nil {
+                log.Printf("Recovered from panic in goroutine: %v", r)
+            }
+        }()
+    
+        ticker := time.NewTicker(time.Minute/10000)
         defer ticker.Stop()
-
-        conn, err := grpc.Dial("trade-service:50052", grpc.WithInsecure())
-        if err != nil {
-            log.Printf("Failed to connect: %v", err)
-        }
-        defer conn.Close()
-
-        client := mycrypto.NewTradeStreamClient(conn)
-
+    
         for range ticker.C {
             snapshot := srv.graph.Snapshot()
             found, arbitragePaths := snapshot.SPFA()
             if found {
-
+    
                 tradeRequest := &mycrypto.TradeRequest{
                     TradeRoute: make([]*mycrypto.TradeInfo, len(arbitragePaths.Route)),
                 }
@@ -81,15 +88,27 @@ func main() {
                         Size:  float32(step.EdgeData.Size),
                     }
                 }
-        
-                if _, err := client.StreamTrades(context.Background(), tradeRequest); err != nil {
-                    log.Fatalf("Failed to send trade request: %v", err)
-                }
+    
+                ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+                defer cancel()
+                client.StreamTrades(ctx, tradeRequest)
             } else {
                 //log.Println("No arbitrage opportunities detected")
             }
+            srv.count++
+        }
+    }(srv, client)
+
+    go func(srv *server) {
+        ticker := time.NewTicker(1 * time.Minute)
+        defer ticker.Stop()
+    
+        for range ticker.C {
+            fmt.Printf("Go routine ran : %d\n", srv.count)
+            srv.count = 0
         }
     }(srv)
+
 
     log.Println("Server is running on port 50051...")
     
