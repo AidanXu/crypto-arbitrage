@@ -13,13 +13,18 @@ import (
 )
 
 func main() {
-    u := url.URL{Scheme: "wss", Host: "testnet.binance.vision", Path: "/ws"}
+    u := url.URL{Scheme: "wss", Host: "stream.binance.com:9443", Path: "/ws"}
 
     c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
     if err != nil {
         log.Fatal("dial:", err)
     }
     defer c.Close()
+
+	// Set the pong handler
+	c.SetPingHandler(func(appData string) error {
+		return c.WriteMessage(websocket.PongMessage, []byte(appData))
+	})
 
     subscribe := map[string]interface{}{
         "method": "SUBSCRIBE",

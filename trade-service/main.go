@@ -16,7 +16,6 @@ import (
 type server struct {
     mycrypto.UnimplementedTradeStreamServer
     mu sync.Mutex
-    sum float64
     count int
     lowestSum float64
     lowestRoute []*mycrypto.TradeInfo
@@ -34,12 +33,12 @@ func (s *server) StreamTrades(ctx context.Context, req *mycrypto.TradeRequest) (
         s.lowestSum = sum
         s.lowestRoute = req.TradeRoute
     }
-    s.sum += sum
+
     s.count++
     s.mu.Unlock()
 
-    // Filter for profitable routes
-    if sum < -0.0075 {
+    // Filter for reasonably profitable routes
+    if sum < -0.0065 {
         binance.CheckRoute(req.TradeRoute)
     }
 
@@ -63,17 +62,15 @@ func main() {
     go func() {
         for range time.Tick(10 * time.Second) {
             tradeServer.mu.Lock()
-            average := tradeServer.sum / float64(tradeServer.count)
             lowestSum := tradeServer.lowestSum
             totalTrades := tradeServer.count
             //lowestRoute := tradeServer.lowestRoute
-            tradeServer.sum = 0
             tradeServer.count = 0
             tradeServer.lowestSum = 0
             tradeServer.lowestRoute = nil
             tradeServer.mu.Unlock()
 
-            log.Printf("Average sum of loop: %f, Lowest Sum: %f, Total Routes: %d", average, lowestSum, totalTrades)
+            log.Printf("Lowest Sum: %f, Total Routes: %d", lowestSum, totalTrades)
             // if lowestRoute != nil {
             //     log.Printf("Route with lowest sum: %v", lowestRoute)
             // }

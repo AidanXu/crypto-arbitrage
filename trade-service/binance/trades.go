@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
+	"time"
 
 	mycrypto "trade-service/protos"
 )
@@ -20,34 +22,54 @@ type SymbolPriceTicker struct {
 func GenerateRouteHash(route []*mycrypto.TradeInfo) string {
     var hashInput string
     for _, trade := range route {
-        hashInput += fmt.Sprintf("%s-%s-%f-%f|", trade.S, trade.E, trade.Rate, trade.Size)
+        hashInput += fmt.Sprintf("%s-%s|", trade.S, trade.E)
     }
     hash := sha1.New()
     hash.Write([]byte(hashInput))
     return hex.EncodeToString(hash.Sum(nil))
 }
 
-var checkedRoutes = make(map[string]bool)
+var (
+    checkedRoutes map[string]bool
+    mapMutex      sync.Mutex
+)
+
+func init() {
+    checkedRoutes = make(map[string]bool)
+    go periodicallyClearMap()
+}
+
+// Reset the checkedRoutes map every minute
+func periodicallyClearMap() {
+    ticker := time.NewTicker(1 * time.Minute) 
+    for range ticker.C {
+        mapMutex.Lock()
+        checkedRoutes = make(map[string]bool)
+        mapMutex.Unlock()
+    }
+}
 
 func CheckAndStoreRoute(route []*mycrypto.TradeInfo) bool {
     hash := GenerateRouteHash(route)
+	mapMutex.Lock()
     if _, exists := checkedRoutes[hash]; exists {
         // Route has already been checked
         return false
     }
     // Mark the route as checked
     checkedRoutes[hash] = true
+	mapMutex.Unlock()
     return true
 }
 
 func CheckRoute(tradeRoute []*mycrypto.TradeInfo) () {
 
-	fmt.Printf("Trade Route: %v\n", tradeRoute)
-
+	// Check if the route has already been checked
 	if !CheckAndStoreRoute(tradeRoute) {
-		// Route has already been checked
 		return
 	}
+
+	fmt.Printf("Trade Route: %v\n", tradeRoute)
 
     symbols := convertTradeRouteToSymbols(tradeRoute)
     
