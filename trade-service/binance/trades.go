@@ -6,18 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	mycrypto "trade-service/protos"
 )
-
-// Response struct
-type SymbolPriceTicker struct {
-    Symbol string `json:"symbol"`
-    Price  string `json:"price"`
-}
 
 func GenerateRouteHash(route []*mycrypto.TradeInfo) string {
     var hashInput string
@@ -53,10 +49,8 @@ func CheckAndStoreRoute(route []*mycrypto.TradeInfo) bool {
     hash := GenerateRouteHash(route)
 	mapMutex.Lock()
     if _, exists := checkedRoutes[hash]; exists {
-        // Route has already been checked
         return false
     }
-    // Mark the route as checked
     checkedRoutes[hash] = true
 	mapMutex.Unlock()
     return true
@@ -64,46 +58,86 @@ func CheckAndStoreRoute(route []*mycrypto.TradeInfo) bool {
 
 func CheckRoute(tradeRoute []*mycrypto.TradeInfo) () {
 
-	// Check if the route has already been checked
 	if !CheckAndStoreRoute(tradeRoute) {
 		return
 	}
 
 	fmt.Printf("Trade Route: %v\n", tradeRoute)
 
+    // Get current price of symbols
     symbols := convertTradeRouteToSymbols(tradeRoute)
     
-    // Remove spaces
     formattedSymbols := make([]string, len(symbols))
     for i, symbol := range symbols {
         symbol = strings.ReplaceAll(symbol, " ", "")
         formattedSymbols[i] = symbol
     }
 
-    // Convert formattedSymbols slice to JSON string
     symbolsJSON, err := json.Marshal(formattedSymbols)
     if err != nil {
         fmt.Printf("Error marshaling symbols to JSON: %v\n", err)
         return
     }
 
-    // Prepare params for the API call
     params := map[string]string{
         "symbols": string(symbolsJSON),
     }
 
     client := NewClient();
 
-    // Get current market price
     response, err := client.DoGetRequest("/api/v3/ticker/price", params)
     if err != nil {
-        log.Fatalf("Failed to do GET request: %v", err)
+        log.Printf("Failed to do GET request: %v", err)
     }
 
-	// Calculate if still profitable and make trade if so using limit orders
-    fmt.Printf("Current Prices: %s\n", response)
+    var prices []SymbolPriceTicker
+    err = json.Unmarshal([]byte(response), &prices)
+    if err != nil {
+        log.Printf("Failed to unmarshal response: %v", err)
+    }
+
+    fmt.Printf("Current Prices: %+v\n", prices)
+
+    recalculated_sum := 0.0
+
+    for _, trade := range tradeRoute {
+        currentRate := getCurrentRates(trade.S, trade.E, prices)
+        recalculated_sum += -math.Log(currentRate)
+    }
+
+    if (recalculated_sum < 0) {
+        fmt.Printf("Sum of path with current rates: %v\n", recalculated_sum)
+    }
 
     return
+}
+
+// Response struct
+type SymbolPriceTicker struct {
+    Symbol string `json:"symbol"`
+    Price  string `json:"price"`
+}
+
+func getCurrentRates(start string, end string, current_prices []SymbolPriceTicker) float64 {
+    symbol := start + end
+    inverseSymbol := end + start
+
+    for _, price := range current_prices {
+        if price.Symbol == symbol {
+            parsedPrice, err := strconv.ParseFloat(price.Price, 64)
+            if err != nil {
+                log.Printf("Failed to parse price: %v", err)
+            }
+            return parsedPrice
+        } else if price.Symbol == inverseSymbol {
+            parsedPrice, err := strconv.ParseFloat(price.Price, 64)
+            if err != nil {
+                log.Printf("Failed to parse price: %v", err)
+            }
+            return 1 / parsedPrice
+        }
+    }
+    return 0
 }
 
 func convertTradeRouteToSymbols(tradeRoute []*mycrypto.TradeInfo) []string {

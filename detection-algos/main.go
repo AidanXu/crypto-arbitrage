@@ -69,7 +69,7 @@ func main() {
             }
         }()
     
-        ticker := time.NewTicker(time.Minute/10000)
+        ticker := time.NewTicker(time.Minute/25000)
         defer ticker.Stop()
     
         for range ticker.C {
