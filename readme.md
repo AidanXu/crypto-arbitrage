@@ -4,9 +4,13 @@ This project is a microservice based algorithmic cryptocurrency trading platform
 
 Currently the websocket stream and trading services are using Binance's spot trading testnet, but can be configured to work with the regular spot trading endpoints.
 
-## Implemented Strategy
+## Implemented Strategies
 
 The current implementation focuses on triangular arbitrage using a modified version of the shortest path faster algorithm with negative cycle detection and recreation. This strategy allows the system to identify and exploit arbitrage opportunities by finding the most profitable triangular/cyclical trading paths.
+
+## Currently Implementing
+
+Right now I am working on managing a local order book using Binance's diff depth stream endpoint to implement order book imbalance strategies.
 
 ## Future Strategies
 
