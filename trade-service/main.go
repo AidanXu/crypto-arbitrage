@@ -38,7 +38,7 @@ func (s *server) StreamTrades(ctx context.Context, req *mycrypto.TradeRequest) (
     s.mu.Unlock()
 
     // Filter for reasonably profitable routes
-    if sum < -0.0065 {
+    if sum < -0.005 {
         binance.CheckRoute(req.TradeRoute)
     }
 
@@ -61,14 +61,12 @@ func main() {
     // Start a goroutine to calculate the average every 10 seconds
     go func() {
         for range time.Tick(10 * time.Second) {
-            tradeServer.mu.Lock()
             lowestSum := tradeServer.lowestSum
             totalTrades := tradeServer.count
             //lowestRoute := tradeServer.lowestRoute
             tradeServer.count = 0
             tradeServer.lowestSum = 0
             tradeServer.lowestRoute = nil
-            tradeServer.mu.Unlock()
 
             log.Printf("Lowest Sum: %f, Total Routes: %d", lowestSum, totalTrades)
             // if lowestRoute != nil {

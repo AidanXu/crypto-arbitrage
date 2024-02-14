@@ -92,8 +92,6 @@ func main() {
                 ctx, cancel := context.WithTimeout(context.Background(), time.Second)
                 defer cancel()
                 client.StreamTrades(ctx, tradeRequest)
-            } else {
-                //log.Println("No arbitrage opportunities detected")
             }
             srv.count++
         }

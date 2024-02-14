@@ -37,11 +37,12 @@ func init() {
 
 // Reset the checkedRoutes map every minute
 func periodicallyClearMap() {
-    ticker := time.NewTicker(1 * time.Minute) 
+    ticker := time.NewTicker(3*time.Minute) 
     for range ticker.C {
         mapMutex.Lock()
         checkedRoutes = make(map[string]bool)
         mapMutex.Unlock()
+        fmt.Printf("checkRoutes map cleared \n")
     }
 }
 
@@ -49,6 +50,7 @@ func CheckAndStoreRoute(route []*mycrypto.TradeInfo) bool {
     hash := GenerateRouteHash(route)
 	mapMutex.Lock()
     if _, exists := checkedRoutes[hash]; exists {
+        mapMutex.Unlock()
         return false
     }
     checkedRoutes[hash] = true
@@ -105,8 +107,12 @@ func CheckRoute(tradeRoute []*mycrypto.TradeInfo) () {
         recalculated_sum += -math.Log(currentRate)
     }
 
-    if (recalculated_sum < 0) {
+    if (recalculated_sum < -0.005) {
         fmt.Printf("Sum of path with current rates: %v\n", recalculated_sum)
+        // TODO: implement place trade
+        // placeTrade(tradeRoute)
+    } else {
+        fmt.Printf("Route no longer profitable\n")
     }
 
     return

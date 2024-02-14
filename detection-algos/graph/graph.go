@@ -199,6 +199,9 @@ func (G *Graph) SPFA() (bool, RouteInfo) {
 		}
 
 		for v, edge := range G.data[u] {
+            if u == v {
+                continue
+            }
 			if dis[u]+edge.Rate < dis[v] {
 				dis[v] = dis[u] + edge.Rate
                 pre[v] = u
