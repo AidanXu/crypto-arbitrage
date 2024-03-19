@@ -107,7 +107,9 @@ func CheckRoute(tradeRoute []*mycrypto.TradeInfo) () {
         recalculated_sum += -math.Log(currentRate)
     }
 
-    if (recalculated_sum < -0.005) {
+    min_return := -0.001 * float64(len(tradeRoute))
+
+    if (recalculated_sum < min_return) {
         fmt.Printf("Sum of path with current rates: %v\n", recalculated_sum)
         // TODO: implement place trade
         // placeTrade(tradeRoute)
